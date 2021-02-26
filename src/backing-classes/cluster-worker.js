@@ -4,6 +4,8 @@ const EventEmitter = require('events').EventEmitter;
 
 const DAGMap = require('dag-map').default;
 const express = require('express');
+const fastify = require('fastify');
+const path = require('path');
 
 const UI = require('./ui');
 
@@ -62,7 +64,8 @@ class ClusterWorker extends EventEmitter {
     // Using express for now. The API almost completely abstracts Express
     // so, save for the actualy middleware implementations, the whole thing
     // can be swapped out.
-    this.app = express();
+    // this._app = express();
+    this.app = fastify({ logger: true });
     this._started = false;
 
     this.loadMiddleware();
@@ -78,10 +81,10 @@ class ClusterWorker extends EventEmitter {
    */
   loadMiddleware() {
     // require('../middlewares/basic-auth')(this);
-    require('../middlewares/compression')(this);
-    require('../middlewares/master-error')(this);
+    // require('../middlewares/compression')(this);
+    // require('../middlewares/master-error')(this);
     require('../middlewares/fastboot')(this, { sandboxGlobals: this.sandboxGlobals });
-    require('../middlewares/missing-assets')(this);
+    // require('../middlewares/missing-assets')(this);
     require('../middlewares/static-serve')(this);
   }
 
@@ -127,8 +130,14 @@ class ClusterWorker extends EventEmitter {
    * @returns {Promise} Promise that resolves when the server is listening.
    * @public
    */
-  start() {
+  async start() {
     this._started = true;
+
+    console.log('ROOT:', path.join(this.distPath, 'webroot'));
+    await this.app.register(require('fastify-static'), {
+      root: path.join(`/${this.distPath}`, 'webroot'),
+      // prefix: '/public/', // optional: default '/'
+    });
 
     this.middlewares.each((name, value) => {
       // "Missing" nodes still show up in the topsort.
@@ -138,6 +147,7 @@ class ClusterWorker extends EventEmitter {
 
       if (value instanceof Function) {
         // Sugar for simplistic middlewares that are just `app.use`.
+        // Static assets
         this.app.use(value);
       } else {
         // Supports the invocation pattern for https://expressjs.com/en/4x/api.html#app.METHOD
@@ -157,16 +167,27 @@ class ClusterWorker extends EventEmitter {
           args.push(callback);
         }
 
+        // App: index.html
         this.app[method](...args);
       }
     });
 
     return new Promise(resolve => {
-      this.app.listen(this.port, this.host, () => {
-        this.ui.writeLine(`HTTP server started on ${this.port}.`);
+      this.app.listen(this.port, this.host, (err, address) => {
+        // if (err) {
+        //   fastify.log.error(err);
+        //   throw err;
+        // }
 
+        this.ui.writeLine(`Fastify HTTP server started on ${address}.`);
         resolve();
       });
+      // this.app.listen(this.port, this.host, () => {
+      //
+      //   this.ui.writeLine(`HTTP server started on ${this.port}.`);
+      //
+      //   resolve();
+      // });
     }).then(() => {
       process.send({ event: 'healthy' });
     });
