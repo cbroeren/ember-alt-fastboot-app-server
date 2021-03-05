@@ -64,7 +64,7 @@ class ClusterWorker extends EventEmitter {
     // Using express for now. The API almost completely abstracts Express
     // so, save for the actualy middleware implementations, the whole thing
     // can be swapped out.
-    // this._app = express();
+    // OLD: this.app = express();
     this.app = fastify({ logger: true });
     this._started = false;
 
@@ -85,7 +85,7 @@ class ClusterWorker extends EventEmitter {
     // require('../middlewares/master-error')(this);
     require('../middlewares/fastboot')(this, { sandboxGlobals: this.sandboxGlobals });
     // require('../middlewares/missing-assets')(this);
-    require('../middlewares/static-serve')(this);
+    // require('../middlewares/static-serve')(this);
   }
 
   /**
@@ -133,10 +133,8 @@ class ClusterWorker extends EventEmitter {
   async start() {
     this._started = true;
 
-    console.log('ROOT:', path.join(this.distPath, 'webroot'));
     await this.app.register(require('fastify-static'), {
-      root: path.join(`/${this.distPath}`, 'webroot'),
-      // prefix: '/public/', // optional: default '/'
+      root: path.join(`${this.distPath}`, 'webroot'),
     });
 
     this.middlewares.each((name, value) => {
@@ -172,12 +170,13 @@ class ClusterWorker extends EventEmitter {
       }
     });
 
+    console.log('\n HOST', this.host, this.port);
     return new Promise(resolve => {
       this.app.listen(this.port, this.host, (err, address) => {
-        // if (err) {
-        //   fastify.log.error(err);
-        //   throw err;
-        // }
+        if (err) {
+          fastify.log.error(err);
+          throw err;
+        }
 
         this.ui.writeLine(`Fastify HTTP server started on ${address}.`);
         resolve();

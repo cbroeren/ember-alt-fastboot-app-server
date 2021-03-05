@@ -178,13 +178,13 @@ module.exports = function fastBootMiddlewareFactory(worker, options) {
     before: 'static-serve'
   });
 
-  worker.addMiddleware({
-    name: 'fastboot-glob',
-    value: {
-      method: 'get',
-      path: '/*',
-      callback: fastBootMiddleware.middleware.bind(fastBootMiddleware)
-    },
-    after: 'missing-assets'
-  });
+  // worker.addMiddleware({
+  //   name: 'fastboot-glob',
+  //   value: {
+  //     method: 'get',
+  //     path: '#<{(|',
+  //     callback: fastBootMiddleware.middleware.bind(fastBootMiddleware)
+  //   },
+  //   after: 'missing-assets'
+  // });
 }
